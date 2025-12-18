@@ -22,6 +22,7 @@ positional arguments:
 optional arguments:
   -h, --help     show this help message and exit
   -d, --one-dir  One directory mode, extracts the pyz to the same directory
+  -i, --info      Display PyInstaller archive information without extracting files
 ```
 
 Pass the exe filename as an argument or drag & drop the pyinstaller exe file over pyinstxtractor.ng icon on Windows.
@@ -37,7 +38,12 @@ X:\> pyinstxtractor-ng --one-dir main.exe
 X:\> cd main.exe_extracted
 X:\main.exe_extracted\> python main.py
 ```
-
+The `--info` or `-i` option prints metadata about the PyInstaller archive without writing any extracted files to disk.
+This is useful for quick inspection and debugging.
+```
+$ ./pyinstxtractor-ng --info <filename>
+X:\> pyinstxtractor-ng -i <filename>
+```
 ## See Also
 
 - [pyinstxtractor-web](https://pyinstxtractor-web.netlify.app/): pyinstxtractor running in the web browser, powered by Go & GopherJS.

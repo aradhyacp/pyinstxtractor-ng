@@ -258,7 +258,11 @@ class PyInstArchive:
             data = self.fPtr.read(entry.cmprsdDataSize)
 
             if entry.cmprsFlag == 1:
-                data = zlib.decompress(data)
+                try:
+                    data = zlib.decompress(data)
+                except zlib.error as e:
+                    eprint(f"[!] Error: Failed to decompress CArchive entry {entry.name}: {e}")
+                    continue
                 # Malware may tamper with the uncompressed size
                 # Comment out the assertion in such a case
                 assert len(data) == entry.uncmprsdDataSize  # Sanity Check
@@ -492,6 +496,50 @@ class PyInstArchive:
                 
                 self._writePyc(filePath, data)
 
+    def printInfo(self):
+        # Print archive information
+        print("\n========== PyInstaller Archive Info ==========")
+        print(f"[+] File: {self.filePath}")
+        print(f"[+] PyInstaller version: {self.pyinstVer}")
+        print(f"[+] Python version: {self.pymaj}.{self.pymin}")
+
+        # PyInstaller generation
+        pi_ver = "2.0" if self.pyinstVer == 20 else "2.1+"
+        print(f"[+] PyInstaller generation: {pi_ver}")
+        print(f"[+] CArchive files: {len(self.tocList)}")
+        
+        # PYZ presence
+        has_pyz = any(entry.typeCmprsData in (b"z", b"Z") for entry in self.tocList)
+        print(f"[+] PYZ archive present: {'Yes' if has_pyz else 'No'}")
+        
+        # Encryption presence
+        encrypted = "Yes" if self.cryptoKeyFileData else "No"
+        print(f"[+] Encrypted: {encrypted}")
+        
+        # Packages vs scripts
+        num_packages = sum(1 for e in self.tocList if e.typeCmprsData == b'M')
+        num_scripts = sum(1 for e in self.tocList if e.typeCmprsData == b's')
+        print(f"[+] Packages: {num_packages}, Python scripts: {num_scripts}")
+    
+        # Entry points
+        entry_points = [entry.name for entry in self.tocList if entry.typeCmprsData == b"s"]
+        print(f"[+] Entry points: {', '.join(entry_points) if entry_points else 'None'}")
+    
+        # Top 5 largest files
+        largest_files = sorted(self.tocList, key=lambda x: x.uncmprsdDataSize, reverse=True)[:5]
+        print("[+] Top 5 largest files:")
+        for f in largest_files:
+            print(f"    {f.name:<40} {f.uncmprsdDataSize:>12,} bytes")
+        
+        # Total sizes
+        total_cmprsd = sum(entry.cmprsdDataSize for entry in self.tocList)
+        total_uncmprsd = sum(entry.uncmprsdDataSize for entry in self.tocList)
+        print(f"[+] Total compressed size:   {total_cmprsd:,} bytes")
+        print(f"[+] Total uncompressed size: {total_uncmprsd:,} bytes")
+        
+        print("==============================================\n")
+
+
 
 def main():
     parser = argparse.ArgumentParser(description="PyInstaller Extractor NG")
@@ -502,6 +550,7 @@ def main():
         help="One directory mode, extracts the pyz in the same directory as the executable",
         action="store_true",
     )
+    parser.add_argument("-i","--info",help="Shows archive information only without extracting",action="store_true")
     args = parser.parse_args()
 
     arch = PyInstArchive(args.filename)
@@ -509,6 +558,10 @@ def main():
         if arch.checkFile():
             if arch.getCArchiveInfo():
                 arch.parseTOC()
+                if args.info:
+                    arch.printInfo()
+                    arch.close()
+                    sys.exit(0)
                 arch.extractFiles(args.one_dir)
                 arch.close()
                 print(
